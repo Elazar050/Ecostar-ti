@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecostar Project Tracker</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;background:#e8f0e4;}
+button,input,select{font-family:Arial,sans-serif;}
+::-webkit-scrollbar{height:5px;width:5px;}
+::-webkit-scrollbar-thumb{background:#5cb82e;border-radius:3px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const {useState} = React;
+const G="#1a3d0e",LG="#5cb82e",XLG="#7ed444";
+
+const TEMPLATES={
+  adu:{label:"ADU Build",badge:"6 MONTHS — 24 WEEKS",
+    milestones:[{n:"Foundation Complete",w:3},{n:"Framing Complete",w:5},{n:"Drywall Complete",w:13},{n:"Cabinets Installed",w:17},{n:"Final Inspection",w:24}],
+    phases:[
+      ["Site Prep + Demo","Site preparation, demolition, clearing","1 Wk"],
+      ["Foundation + Underground","Excavation, footings, foundation, underground plumbing","2 Wks"],
+      ["Framing","Wall framing, floor framing, sheathing","2 Wks"],
+      ["Roofing","Roof framing, underlayment, roofing install","1 Wk"],
+      ["Windows + Exterior Doors","Exterior windows and doors installation","1 Wk"],
+      ["Rough Plumbing","Rough plumbing installation","1 Wk"],
+      ["Rough Electrical","Rough electrical installation","1 Wk"],
+      ["Rough HVAC","Rough HVAC installation","1 Wk"],
+      ["Inspections + Corrections","Rough inspections and any corrections","1 Wk"],
+      ["Insulation","Insulation installation","3 Days"],
+      ["Drywall Hang + Tape","Drywall installation and taping","2 Wks"],
+      ["Interior Texture + Prime","Texture and primer coat","1 Wk"],
+      ["Exterior Finish","Stucco / siding / exterior finishing","2 Wks"],
+      ["Flooring","Flooring installation","1 Wk"],
+      ["Cabinets + Vanity Install","Cabinets, vanities, and built-ins","1 Wk"],
+      ["Interior Paint Finish","Interior painting","1 Wk"],
+      ["Tile Work","Tile installation (bathrooms, backsplash, etc.)","1 Wk"],
+      ["Finish Electrical","Devices, fixtures, switches, panels","1 Wk"],
+      ["Finish Plumbing","Fixtures, trim, water heaters, etc.","1 Wk"],
+      ["Finish HVAC","HVAC trim, registers, thermostats","2-3 Days"],
+      ["Interior Finish","Doors, baseboards, trim, hardware install","1 Wk"],
+      ["Final Punch List","Punch list items and touch-ups","1 Wk"],
+      ["Final Inspection + Cleaning","Final inspection and project cleaning","1 Wk"],
+    ]},
+  remodel:{label:"Full Remodel",badge:"4 MONTHS — 16 WEEKS",
+    milestones:[{n:"Demo Complete",w:1},{n:"Rough-in Complete",w:5},{n:"Drywall Complete",w:8},{n:"Finish Work",w:13},{n:"Final Walkthrough",w:16}],
+    phases:[
+      ["Demo + Site Prep","Full interior demolition and debris removal","1 Wk"],
+      ["Structural Work","Structural modifications, beams, headers","1 Wk"],
+      ["Rough Plumbing","Plumbing re-route and new runs","1 Wk"],
+      ["Rough Electrical","Panel upgrade, new circuits, rough wiring","1 Wk"],
+      ["Rough HVAC","Duct modifications, new supply/return runs","1 Wk"],
+      ["Inspections","All rough inspections and corrections","1 Wk"],
+      ["Insulation","Wall and ceiling insulation","3 Days"],
+      ["Drywall Hang + Tape","Drywall installation and taping","2 Wks"],
+      ["Interior Texture + Prime","Texture and primer coat","1 Wk"],
+      ["Flooring","Hardwood, tile, or LVP installation","1 Wk"],
+      ["Cabinets + Built-ins","Cabinet installation and built-ins","1 Wk"],
+      ["Interior Paint","Full interior paint — walls, ceilings, trim","1 Wk"],
+      ["Tile Work","Kitchen backsplash, bathroom tile","1 Wk"],
+      ["Finish Electrical + Plumbing","Fixtures, devices, trims, faucets","1 Wk"],
+      ["Interior Trim + Hardware","Baseboards, doors, hardware install","1 Wk"],
+      ["Final Punch + Cleaning","Touch-ups, final inspection, deep clean","1 Wk"],
+    ]},
+  kitchen:{label:"Kitchen",badge:"2 MONTHS — 8 WEEKS",
+    milestones:[{n:"Demo Complete",w:1},{n:"Rough-in Approved",w:3},{n:"Cabinets Installed",w:5},{n:"Final Inspection",w:8}],
+    phases:[
+      ["Demo + Prep","Cabinet, flooring, and fixture removal","3 Days"],
+      ["Rough Plumbing","New sink lines, dishwasher, disposal","2 Days"],
+      ["Rough Electrical","New circuits, under-cabinet, island drops","3 Days"],
+      ["Inspections","Plumbing and electrical inspections","2 Days"],
+      ["Drywall + Patch","Patch drywall, skim, and prime","3 Days"],
+      ["Flooring","Tile or LVP installation","4 Days"],
+      ["Cabinet Install","Upper and lower cabinet installation","4 Days"],
+      ["Countertops","Measure, fabricate, and install counters","1 Wk"],
+      ["Backsplash Tile","Backsplash installation and grout","3 Days"],
+      ["Appliance Install","Range, hood, dishwasher, refrigerator","2 Days"],
+      ["Finish Plumbing","Sink, faucet, garbage disposal hookup","1 Day"],
+      ["Finish Electrical","Devices, fixtures, under-cabinet lights","1 Day"],
+      ["Paint + Touch-ups","Final paint and interior touch-ups","2 Days"],
+      ["Final Punch + Cleaning","Punch list, inspection, deep clean","2 Days"],
+    ]},
+  bath:{label:"Bathroom",badge:"1 MONTH — 4 WEEKS",
+    milestones:[{n:"Demo Complete",w:1},{n:"Tile Complete",w:3},{n:"Final Inspection",w:4}],
+    phases:[
+      ["Demo","Remove fixtures, tile, vanity, flooring","2 Days"],
+      ["Rough Plumbing","New supply and drain lines if needed","1 Day"],
+      ["Rough Electrical","GFCI, exhaust fan, lighting circuits","1 Day"],
+      ["Inspections","Plumbing and electrical rough inspections","1 Day"],
+      ["Waterproofing + Backer","Cement board, waterproof membrane","2 Days"],
+      ["Shower Tile","Shower walls and floor tile install","3 Days"],
+      ["Floor Tile","Bathroom floor tile installation","2 Days"],
+      ["Grout + Caulk","Grout all tile, caulk transitions","1 Day"],
+      ["Vanity + Mirror","Vanity cabinet, countertop, mirror","1 Day"],
+      ["Finish Plumbing","Toilet, faucets, shower valve trim","1 Day"],
+      ["Finish Electrical","Lights, exhaust fan, GFCI outlets","1 Day"],
+      ["Paint + Accessories","Paint walls, install towel bars, TP holder","1 Day"],
+      ["Final Punch + Cleaning","Touch-ups, inspection, final clean","1 Day"],
+    ]},
+  addition:{label:"Room Addition",badge:"3 MONTHS — 12 WEEKS",
+    milestones:[{n:"Foundation Complete",w:2},{n:"Framing Complete",w:4},{n:"Drywall Complete",w:8},{n:"Final Inspection",w:12}],
+    phases:[
+      ["Site Prep + Demo","Clear area, remove siding, prep opening","3 Days"],
+      ["Foundation","Footings, foundation slab or crawlspace","1 Wk"],
+      ["Framing","Wall, floor, and roof framing","2 Wks"],
+      ["Roofing","Tie-in roofing, sheathing, underlayment","4 Days"],
+      ["Windows + Exterior Doors","New window and door installation","3 Days"],
+      ["Rough Plumbing","New plumbing rough-in if required","3 Days"],
+      ["Rough Electrical","New circuits and rough electrical","3 Days"],
+      ["Rough HVAC","Extend ductwork, new registers","2 Days"],
+      ["Inspections","All rough inspections and corrections","1 Wk"],
+      ["Insulation","Wall and ceiling insulation","2 Days"],
+      ["Drywall","Hang, tape, texture, prime","2 Wks"],
+      ["Flooring","Flooring to match existing or new","4 Days"],
+      ["Interior Trim + Paint","Baseboards, doors, hardware, paint","1 Wk"],
+      ["Finish MEP","Electrical, plumbing, HVAC trim-out","3 Days"],
+      ["Exterior Finish","Siding, paint, match existing exterior","4 Days"],
+      ["Final Punch + Cleaning","Touch-ups, final inspection, clean","3 Days"],
+    ]},
+};
+
+const STATUS=[
+  {v:"none",label:"Not Started",bg:"#f0f0f0",color:"#888",border:"#ccc"},
+  {v:"on",label:"On Schedule",bg:"#e4f8d0",color:"#1a5c00",border:"#5cb82e"},
+  {v:"slight",label:"Slight Delay",bg:"#fff9d6",color:"#6b4e00",border:"#d4a800"},
+  {v:"major",label:"Major Delay",bg:"#ffeaea",color:"#7a0000",border:"#cc2020"},
+  {v:"done",label:"Complete",bg:"#1a3d0e",color:"#7ed444",border:"#1a3d0e"},
+];
+const ROW={none:null,on:null,slight:"#fffbe6",major:"#fff2f2",done:"#eafade"};
+
+function mkState(phases){
+  const s={};phases.forEach((_,i)=>{s[i]={status:"none",progress:0,date:""};});return s;
+}
+
+function App(){
+  const [key,setKey]=useState("adu");
+  const [rows,setRows]=useState(()=>mkState(TEMPLATES.adu.phases));
+  const [proj,setProj]=useState("");
+  const [addr,setAddr]=useState("");
+  const [sd,setSd]=useState("");
+  const [pm,setPm]=useState("");
+
+  const tpl=TEMPLATES[key];
+  const n=tpl.phases.length;
+
+  function pick(k){setKey(k);setRows(mkState(TEMPLATES[k].phases));}
+
+  function setSt(i,v){
+    setRows(p=>{
+      const nx={...p,[i]:{...p[i],status:v}};
+      if(v==="done")nx[i].progress=100;
+      if(v==="none")nx[i].progress=0;
+      return nx;
+    });
+  }
+
+  function setDt(i,v){setRows(p=>({...p,[i]:{...p[i],date:v}}));}
+
+  function tapBar(e,i){
+    e.preventDefault();
+    const r=e.currentTarget.getBoundingClientRect();
+    const cx=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+    const pct=Math.min(100,Math.max(0,Math.round((cx/r.width)*100)));
+    setRows(p=>({...p,[i]:{...p[i],progress:pct}}));
+  }
+
+  let tot=0,cDone=0,cOn=0,cSl=0,cMaj=0;
+  for(let i=0;i<n;i++){
+    const r=rows[i]||{status:"none",progress:0};
+    tot+=r.progress;
+    if(r.status==="done")cDone++;
+    else if(r.status==="on")cOn++;
+    else if(r.status==="slight")cSl++;
+    else if(r.status==="major")cMaj++;
+  }
+  const pct=Math.round(tot/n);
+  const circ=2*Math.PI*36;
+  const dash=(pct/100)*circ;
+
+  const inp={border:"none",borderBottom:"1.5px solid #aaa",fontSize:11,color:G,background:"transparent",outline:"none",padding:"1px 3px"};
+  const sideBox={background:"#fff",border:`2px solid ${G}`,borderRadius:8,overflow:"hidden",marginBottom:10};
+  const sideHdr={background:G,color:"#fff",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",padding:"5px 10px",textAlign:"center"};
+
+  return (
+    <div style={{fontFamily:"Arial,sans-serif",background:"#e8f0e4",minHeight:"100vh"}}>
+
+      {/* NAV */}
+      <div style={{background:G,padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,position:"sticky",top:0,zIndex:99}}>
+        <div>
+          <div style={{fontSize:26,fontWeight:900,lineHeight:1}}>
+            <span style={{color:XLG}}>eco</span><span style={{color:"#c8f090"}}>star</span>
+          </div>
+          <div style={{fontSize:8,letterSpacing:2,color:"#a8d87a",fontWeight:700,marginTop:1}}>REMODELING &amp; CONSTRUCTION</div>
+        </div>
+        <div style={{color:"#a8d87a",fontWeight:700,fontSize:13,letterSpacing:1}}>PROJECT TRACKER</div>
+      </div>
+
+      {/* TEMPLATE BAR */}
+      <div style={{background:"#fff",borderBottom:"2px solid #c8e0b8",padding:"8px 16px",display:"flex",alignItems:"center",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+        <span style={{fontWeight:700,fontSize:10,color:G,whiteSpace:"nowrap",textTransform:"uppercase",letterSpacing:1}}>Type:</span>
+        {Object.entries(TEMPLATES).map(([k,t])=>(
+          <button key={k} onClick={()=>pick(k)} style={{
+            fontSize:11,fontWeight:700,padding:"7px 12px",borderRadius:5,
+            border:`2px solid ${key===k?G:"#c8e0b8"}`,
+            background:key===k?G:"#fff",color:key===k?XLG:G,
+            cursor:"pointer",whiteSpace:"nowrap",textTransform:"uppercase",
+            WebkitTapHighlightColor:"transparent",
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* FIELDS */}
+      <div style={{background:"#fff",borderBottom:"2px solid #c8e0b8",padding:"8px 16px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        {[["Project",proj,setProj,"Name",130],["Address",addr,setAddr,"Address",160],["PM",pm,setPm,"Manager",110]].map(([l,v,s,p,w])=>(
+          <label key={l} style={{display:"flex",alignItems:"center",gap:5,fontSize:10,fontWeight:700,color:"#444",textTransform:"uppercase"}}>
+            {l}: <input value={v} onChange={e=>s(e.target.value)} placeholder={p} style={{...inp,width:w}}/>
+          </label>
+        ))}
+        <label style={{display:"flex",alignItems:"center",gap:5,fontSize:10,fontWeight:700,color:"#444",textTransform:"uppercase"}}>
+          Start: <input type="date" value={sd} onChange={e=>setSd(e.target.value)} style={inp}/>
+        </label>
+        <div style={{marginLeft:"auto",background:G,color:XLG,padding:"6px 14px",borderRadius:6,fontWeight:700,fontSize:12,whiteSpace:"nowrap"}}>{tpl.badge}</div>
+      </div>
+
+      {/* BODY */}
+      <div style={{display:"flex",alignItems:"flex-start"}}>
+
+        {/* TABLE */}
+        <div style={{flex:1,padding:"12px 8px 12px 16px",overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
+          <div style={{background:"#fff",borderRadius:8,border:`2px solid ${G}`,overflow:"hidden",minWidth:580}}>
+            <div style={{display:"grid",gridTemplateColumns:"28px 145px 1fr 54px 94px 112px 70px",background:G,color:"#fff",fontSize:9,fontWeight:700,letterSpacing:.8,textTransform:"uppercase",padding:"7px 10px",gap:5,alignItems:"center"}}>
+              {["#","Phase","Description","Dur.","Target Date","Status","Progress"].map(h=><div key={h}>{h}</div>)}
+            </div>
+            {tpl.phases.map((p,i)=>{
+              const r=rows[i]||{status:"none",progress:0,date:""};
+              const sc=STATUS.find(s=>s.v===r.status)||STATUS[0];
+              const rbg=ROW[r.status]||(i%2===0?"#fff":"#f5fbf0");
+              return(
+                <div key={i} style={{display:"grid",gridTemplateColumns:"28px 145px 1fr 54px 94px 112px 70px",padding:"5px 10px",gap:5,alignItems:"center",background:rbg,borderBottom:i<n-1?"1px solid #d5eac5":"none"}}>
+                  <div style={{fontWeight:800,color:LG,fontSize:12,textAlign:"center"}}>{i+1}</div>
+                  <div style={{fontWeight:700,color:G,fontSize:9,textTransform:"uppercase",lineHeight:1.3}}>{p[0]}</div>
+                  <div style={{color:"#666",fontSize:9,lineHeight:1.3}}>{p[1]}</div>
+                  <div style={{fontWeight:700,color:"#2a7010",fontSize:10}}>{p[2]}</div>
+                  <div>
+                    <input type="date" value={r.date} onChange={e=>setDt(i,e.target.value)}
+                      style={{border:"none",borderBottom:"1px solid #ccc",fontSize:10,color:"#333",background:"transparent",outline:"none",width:"100%",padding:"2px 0"}}/>
+                  </div>
+                  <select value={r.status} onChange={e=>setSt(i,e.target.value)}
+                    style={{background:sc.bg,color:sc.color,border:`1.5px solid ${sc.border}`,fontSize:10,fontWeight:700,borderRadius:4,padding:"3px 4px",cursor:"pointer",outline:"none",width:"100%"}}>
+                    {STATUS.map(o=><option key={o.v} value={o.v}>{o.label}</option>)}
+                  </select>
+                  <div style={{display:"flex",alignItems:"center",gap:3}}>
+                    <div onClick={e=>tapBar(e,i)} onTouchEnd={e=>tapBar(e,i)}
+                      style={{flex:1,height:12,background:"#e0e0e0",borderRadius:6,cursor:"pointer",position:"relative",minWidth:32,touchAction:"none"}}>
+                      <div style={{width:r.progress+"%",height:"100%",background:r.status==="done"?G:LG,borderRadius:6}}/>
+                    </div>
+                    <div style={{fontSize:9,fontWeight:700,color:"#333",minWidth:22,textAlign:"right"}}>{r.progress}%</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* SIDEBAR */}
+        <div style={{width:185,flexShrink:0,padding:"12px 16px 12px 4px"}}>
+
+          {/* DONUT */}
+          <div style={sideBox}>
+            <div style={sideHdr}>Overall Progress</div>
+            <div style={{padding:"10px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+              <div style={{position:"relative",width:90,height:90}}>
+                <svg viewBox="0 0 90 90" width="90" height="90">
+                  <circle cx="45" cy="45" r="36" fill="none" stroke="#d5edc4" strokeWidth="10"/>
+                  <circle cx="45" cy="45" r="36" fill="none" stroke={pct===100?G:LG} strokeWidth="10"
+                    strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" transform="rotate(-90 45 45)"/>
+                </svg>
+                <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",textAlign:"center"}}>
+                  <div style={{fontSize:22,fontWeight:900,color:G,lineHeight:1}}>{pct}%</div>
+                  <div style={{fontSize:7,color:"#888",fontWeight:700}}>COMPLETE</div>
+                </div>
+              </div>
+              <div style={{width:"100%"}}>
+                {[[G,"Complete"],[LG,"On schedule"],["#d4a800","Slight delay"],["#cc2020","Major delay"],["#ddd","Not started"]].map(([c,l])=>(
+                  <div key={l} style={{display:"flex",alignItems:"center",gap:5,fontSize:9,color:"#444",marginBottom:4}}>
+                    <div style={{width:9,height:9,borderRadius:"50%",background:c,flexShrink:0,border:c==="#ddd"?"1px solid #bbb":"none"}}/>
+                    {l}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* SUMMARY */}
+          <div style={sideBox}>
+            <div style={sideHdr}>Summary</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5,padding:7}}>
+              {[[cDone,"Complete",G],[cOn,"On Track","#1a6600"],[cSl,"Slight Delay","#7a5000"],[cMaj,"Major Delay","#8b0000"]].map(([num,lbl,c])=>(
+                <div key={lbl} style={{background:"#f3faed",borderRadius:5,padding:"5px 4px",textAlign:"center"}}>
+                  <div style={{fontSize:20,fontWeight:900,color:c,lineHeight:1}}>{num}</div>
+                  <div style={{fontSize:8,color:"#666",fontWeight:700,marginTop:2}}>{lbl}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* MILESTONES */}
+          <div style={sideBox}>
+            <div style={sideHdr}>Key Milestones</div>
+            <div style={{padding:8}}>
+              {tpl.milestones.map((m,i)=>(
+                <div key={i} style={{display:"flex",gap:4,marginBottom:5,fontSize:9}}>
+                  <div style={{color:LG,fontSize:11,flexShrink:0}}>⚑</div>
+                  <div style={{fontWeight:700,color:G,flex:1,lineHeight:1.3}}>{m.n}</div>
+                  <div style={{color:"#888",whiteSpace:"nowrap"}}>Wk {m.w}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* NOTES */}
+          <div style={sideBox}>
+            <div style={sideHdr}>Notes</div>
+            <div style={{padding:8,display:"flex",flexDirection:"column",gap:8}}>
+              {[...Array(5)].map((_,i)=><div key={i} style={{borderBottom:"1px solid #ccc",height:14}}/>)}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div style={{background:"#fff",borderTop:`2.5px solid ${G}`,padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div style={{fontWeight:700,fontSize:11,color:G,lineHeight:1.5}}>
+          SAFETY FIRST. QUALITY ALWAYS.<br/>
+          <span style={{color:LG}}>LET'S BUILD IT RIGHT.</span>
+        </div>
+        <div style={{fontWeight:700,fontSize:11,color:G,textAlign:"right",lineHeight:1.4}}>
+          TEAM WORK BUILDS<br/><span style={{fontSize:17,color:LG}}>DREAMS</span>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
