@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Land Deal Analyzer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --green-dark: #1a3d0e;
+    --green-mid: #5cb82e;
+    --green-light: #7ed444;
+    --bg: #f4f6f2;
+    --surface: #ffffff;
+    --border: #d8e0d3;
+    --text: #1a1a1a;
+    --muted: #5a6b54;
+    --radius: 10px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 28px 20px; }
+
+  h1 { font-size: 22px; font-weight: 700; color: var(--green-dark); margin-bottom: 6px; }
+  .page-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 24px; }
+  .tab-btn { padding: 9px 18px; font-size: 13px; font-weight: 600; border: none; background: none; cursor: pointer; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 6px 6px 0 0; transition: all 0.15s; }
+  .tab-btn:hover { background: #eef4ea; color: var(--green-dark); }
+  .tab-btn.active { color: var(--green-dark); border-bottom-color: var(--green-mid); background: #eef4ea; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 11px; font-weight: 700; color: var(--green-dark); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--green-light); display: flex; justify-content: space-between; align-items: center; }
+  .card-total { font-size: 14px; font-weight: 700; color: var(--green-dark); }
+
+  /* Cost input table */
+  .cost-table { width: 100%; border-collapse: collapse; }
+  .cost-table th { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  .cost-table th.right { text-align: right; }
+  .cost-table td { padding: 5px 8px; border-bottom: 1px solid #f0f4ee; vertical-align: middle; }
+  .cost-table tr:last-child td { border-bottom: none; }
+  .cost-table .section-row td { background: #f8faf6; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 8px 4px; }
+  .cost-table .total-row td { border-top: 2px solid var(--border); font-weight: 700; background: #f8faf6; }
+  .cost-table .subtotal-row td { border-top: 1px solid var(--border); font-weight: 600; color: var(--green-dark); background: #f0f7eb; }
+  .cost-table input[type=number] { width: 140px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: #fafafa; font-size: 13px; color: var(--text); font-family: inherit; text-align: right; }
+  .cost-table input[type=number]:focus { outline: none; border-color: var(--green-mid); background: #fff; }
+  .cost-table .row-label { font-size: 13px; color: var(--text); }
+  .cost-table .row-pct { font-size: 12px; color: var(--muted); text-align: right; min-width: 60px; }
+  .cost-table .row-sub { font-size: 11px; color: #94a68e; }
+
+  /* 2-col grid for income/expense */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* Fields */
+  .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .field { margin-bottom: 0; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input { width: 100%; padding: 8px 10px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; background: #fafafa; color: var(--text); font-family: inherit; }
+  .field input:focus { outline: none; border-color: var(--green-mid); background: #fff; }
+  .field .hint { font-size: 11px; color: #94a68e; margin-top: 3px; }
+
+  /* Verdict */
+  .verdict-box { border-radius: var(--radius); padding: 18px 22px; margin-bottom: 20px; border-left: 5px solid; }
+  .verdict-box.good { background: #edf7e6; border-color: #3b8c1a; }
+  .verdict-box.caution { background: #fff8e6; border-color: #c47f00; }
+  .verdict-box.bad { background: #fdecea; border-color: #c0392b; }
+  .verdict-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .verdict-title.good { color: #2a6612; }
+  .verdict-title.caution { color: #8a5800; }
+  .verdict-title.bad { color: #a02020; }
+  .verdict-sub { font-size: 13px; }
+  .verdict-sub.good { color: #3b6d1a; }
+  .verdict-sub.caution { color: #7a4e00; }
+  .verdict-sub.bad { color: #8b2020; }
+
+  /* KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .kpi-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .kpi-value { font-size: 24px; font-weight: 700; }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .kpi-value.green { color: #2a6612; }
+  .kpi-value.amber { color: #8a5800; }
+  .kpi-value.red { color: #a02020; }
+  .kpi-value.blue { color: #1a4d8a; }
+
+  /* Detail rows */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .row-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .row-item:last-child { border-bottom: none; }
+  .row-item .lbl { color: var(--muted); }
+  .row-item .val { font-weight: 600; }
+
+  /* Bar chart */
+  .bar-row { margin-bottom: 12px; font-size: 12px; }
+  .bar-top { display: flex; justify-content: space-between; margin-bottom: 4px; color: var(--muted); font-weight: 500; }
+  .bar-bg { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+
+  .chart-wrap { position: relative; width: 100%; height: 240px; }
+  footer { text-align: center; padding: 24px; font-size: 12px; color: #94a68e; border-top: 1px solid var(--border); margin-top: 12px; }
+
+  @media (max-width: 700px) {
+    .two-col, .detail-grid { grid-template-columns: 1fr; }
+    .cost-table input[type=number] { width: 110px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+    <div>
+      <h1>Land Deal Analyzer</h1>
+      <p class="page-sub">All data is saved automatically in your browser.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="project-name" placeholder="Project name..." style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--green-dark);background:#fff;width:180px;">
+      <button onclick="newProject()" style="padding:8px 14px;background:#fff;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;">+ New project</button>
+    </div>
+  </div>
+  <div id="save-indicator" style="font-size:12px;color:#94a68e;margin-bottom:10px;min-height:16px;"></div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('costs')">Construction costs</button>
+    <button class="tab-btn" onclick="switchTab('income')">Income & expenses</button>
+    <button class="tab-btn" onclick="switchTab('acquisition')">Acquisition & settings</button>
+    <button class="tab-btn" onclick="switchTab('results')">Results & analysis</button>
+  </div>
+
+  <!-- ═══════════════ TAB: COSTS ═══════════════ -->
+  <div id="tab-costs" class="tab-panel active">
+
+    <div class="card">
+      <p class="card-title">Hard costs <span class="card-total" id="hard-total-display">$0</span></p>
+      <table class="cost-table">
+        <thead><tr><th>Line item</th><th class="right">Amount ($)</th><th class="right">% of hard</th></tr></thead>
+        <tbody id="hard-body">
+          <tr class="section-row"><td colspan="3">Structure & foundation</td></tr>
+          <tr><td class="row-label">Installation of SOE (Secant)</td><td><input type="number" data-group="hard" value="4000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Concrete structure</td><td><input type="number" data-group="hard" value="20000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Foundation</td><td><input type="number" data-group="hard" value="3000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Dewatering</td><td><input type="number" data-group="hard" value="150000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Transport / dispose urban fill</td><td><input type="number" data-group="hard" value="1600000"></td><td class="row-pct"></td></tr>
+
+          <tr class="section-row"><td colspan="3">Exterior & facade</td></tr>
+          <tr><td class="row-label">Aluminum / brick</td><td><input type="number" data-group="hard" value="9500000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Windows</td><td><input type="number" data-group="hard" value="7750000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Stucco / waterproofing</td><td><input type="number" data-group="hard" value="300000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Water proofing (facade)</td><td><input type="number" data-group="hard" value="300000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Water proofing (foundation)</td><td><input type="number" data-group="hard" value="250000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Roofing</td><td><input type="number" data-group="hard" value="1500000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Blocks / masonry</td><td><input type="number" data-group="hard" value="500000"></td><td class="row-pct"></td></tr>
+
+          <tr class="section-row"><td colspan="3">MEP (mechanical, electrical, plumbing)</td></tr>
+          <tr><td class="row-label">Plumbing rough</td><td><input type="number" data-group="hard" value="9000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Plumbing fixtures & finishing</td><td><input type="number" data-group="hard" value="2000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Plumbing sprinklers</td><td><input type="number" data-group="hard" value="2538000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">HVAC</td><td><input type="number" data-group="hard" value="8700000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Electric rough / low voltage</td><td><input type="number" data-group="hard" value="9700000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Electrical fixtures & finishing</td><td><input type="number" data-group="hard" value="800000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Low voltage</td><td><input type="number" data-group="hard" value="800000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Fire alarm / arcs</td><td><input type="number" data-group="hard" value="1000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Sewer / water / gas / ConEd</td><td><input type="number" data-group="hard" value="750000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Water, seal, fire</td><td><input type="number" data-group="hard" value="300000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Generator / cooling tower</td><td><input type="number" data-group="hard" value="400000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Elevator</td><td><input type="number" data-group="hard" value="4700000"></td><td class="row-pct"></td></tr>
+
+          <tr class="section-row"><td colspan="3">Interior & finishes</td></tr>
+          <tr><td class="row-label">Carpentry contract</td><td><input type="number" data-group="hard" value="13920000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Framing labor / material / doors</td><td><input type="number" data-group="hard" value="1300000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Interior (metal) stairs</td><td><input type="number" data-group="hard" value="700000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Kitchens</td><td><input type="number" data-group="hard" value="2700000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Appliances</td><td><input type="number" data-group="hard" value="2400000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Tiles</td><td><input type="number" data-group="hard" value="2000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Wood floor</td><td><input type="number" data-group="hard" value="1800000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Painting</td><td><input type="number" data-group="hard" value="2400000"></td><td class="row-pct"></td></tr>
+
+          <tr class="section-row"><td colspan="3">Site & amenities</td></tr>
+          <tr><td class="row-label">BPP + landscaping</td><td><input type="number" data-group="hard" value="350000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Pavers</td><td><input type="number" data-group="hard" value="600000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Parking</td><td><input type="number" data-group="hard" value="400000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Rooftop / lounge / co-working / gym</td><td><input type="number" data-group="hard" value="3200000"></td><td class="row-pct"></td></tr>
+
+          <tr class="section-row"><td colspan="3">General conditions & overhead</td></tr>
+          <tr><td class="row-label">Site maintenance / utilities / cleaning</td><td><input type="number" data-group="hard" value="2350000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Site protection (sidewalk shed, scaffold)</td><td><input type="number" data-group="hard" value="2700000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Site safety</td><td><input type="number" data-group="hard" value="850000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Hoist</td><td><input type="number" data-group="hard" value="600000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">General conditions</td><td><input type="number" data-group="hard" value="1000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">GC fee</td><td><input type="number" data-group="hard" value="2000000"></td><td class="row-pct"></td></tr>
+
+          <tr class="subtotal-row"><td>Subtotal hard costs</td><td style="text-align:right;font-size:13px;" id="hard-sub">$0</td><td></td></tr>
+          <tr><td class="row-label">Contingency (%)</td><td><input type="number" id="hard-contingency-pct" value="5" min="0" max="30" style="width:80px;text-align:right;"></td><td class="row-pct" id="hard-cont-amt"></td></tr>
+          <tr class="total-row"><td>Total hard costs</td><td style="text-align:right;font-size:14px;" id="hard-total">$0</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Soft costs <span class="card-total" id="soft-total-display">$0</span></p>
+      <table class="cost-table">
+        <thead><tr><th>Line item</th><th class="right">Amount ($)</th><th class="right">% of soft</th></tr></thead>
+        <tbody>
+          <tr><td class="row-label">Environmental</td><td><input type="number" data-group="soft" value="2000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">DOB permits & fees</td><td><input type="number" data-group="soft" value="500000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Geotechnical</td><td><input type="number" data-group="soft" value="150000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Architect</td><td><input type="number" data-group="soft" value="1550000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Designer</td><td><input type="number" data-group="soft" value="500000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Engineer</td><td><input type="number" data-group="soft" value="1200000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Construction insurance</td><td><input type="number" data-group="soft" value="3000000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Expediting</td><td><input type="number" data-group="soft" value="300000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Legal</td><td><input type="number" data-group="soft" value="500000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Survey</td><td><input type="number" data-group="soft" value="100000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Tax abatements / 421A</td><td><input type="number" data-group="soft" value="250000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">License and access agreements</td><td><input type="number" data-group="soft" value="250000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Real estate tax carry</td><td><input type="number" data-group="soft" value="750000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Miscellaneous soft costs</td><td><input type="number" data-group="soft" value="1000000"></td><td class="row-pct"></td></tr>
+          <tr class="subtotal-row"><td>Subtotal soft costs</td><td style="text-align:right;font-size:13px;" id="soft-sub">$0</td><td></td></tr>
+          <tr><td class="row-label">Contingency (%)</td><td><input type="number" id="soft-contingency-pct" value="10" min="0" max="30" style="width:80px;text-align:right;"></td><td class="row-pct" id="soft-cont-amt"></td></tr>
+          <tr class="total-row"><td>Total soft costs</td><td style="text-align:right;font-size:14px;" id="soft-total">$0</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <p class="card-title">Financing costs <span class="card-total" id="fin-total-display">$0</span></p>
+      <table class="cost-table">
+        <thead><tr><th>Line item</th><th class="right">Amount ($)</th><th class="right">% of financing</th></tr></thead>
+        <tbody>
+          <tr><td class="row-label">Mortgage recording tax</td><td><input type="number" data-group="fin" value="5807495"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Title</td><td><input type="number" data-group="fin" value="725937"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Senior debt origination fee</td><td><input type="number" data-group="fin" value="2074105"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Bank admin fee</td><td><input type="number" data-group="fin" value="72000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Lender non-refundable processing fee</td><td><input type="number" data-group="fin" value="50000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Third parties</td><td><input type="number" data-group="fin" value="100000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Lender legal</td><td><input type="number" data-group="fin" value="150000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Borrower legal</td><td><input type="number" data-group="fin" value="75000"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Mortgage broker</td><td><input type="number" data-group="fin" value="829642"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Interest reserve — senior</td><td><input type="number" data-group="fin" value="23775571"></td><td class="row-pct"></td></tr>
+          <tr><td class="row-label">Interest reserve — mezz</td><td><input type="number" data-group="fin" value="0"></td><td class="row-pct"></td></tr>
+          <tr class="total-row"><td>Total financing costs</td><td style="text-align:right;font-size:14px;" id="fin-total">$0</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════ TAB: INCOME & EXPENSES ═══════════════ -->
+  <div id="tab-income" class="tab-panel">
+
+    <!-- Residential units input -->
+    <div class="card">
+      <p class="card-title">Residential units — market rate</p>
+      <table class="cost-table">
+        <thead>
+          <tr>
+            <th>Unit type</th>
+            <th class="right"># Units</th>
+            <th class="right">Monthly rent ($)</th>
+            <th class="right">Annual income</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Studio</td>
+            <td><input type="number" id="u_studio" value="98" min="0"></td>
+            <td><input type="number" id="r_studio" value="3150" min="0"></td>
+            <td class="row-pct" id="a_studio" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">1 Bedroom</td>
+            <td><input type="number" id="u_1br" value="239" min="0"></td>
+            <td><input type="number" id="r_1br" value="4250" min="0"></td>
+            <td class="row-pct" id="a_1br" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">2 Bedroom</td>
+            <td><input type="number" id="u_2br" value="194" min="0"></td>
+            <td><input type="number" id="r_2br" value="5400" min="0"></td>
+            <td class="row-pct" id="a_2br" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">3 Bedroom</td>
+            <td><input type="number" id="u_3br" value="44" min="0"></td>
+            <td><input type="number" id="r_3br" value="6500" min="0"></td>
+            <td class="row-pct" id="a_3br" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr class="subtotal-row">
+            <td>Market rate total</td>
+            <td id="u_total_market" style="text-align:right;font-size:12px;color:var(--muted);"></td>
+            <td></td>
+            <td style="text-align:right;font-weight:700;" id="res_income_calc"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Affordable units -->
+    <div class="card">
+      <p class="card-title">Residential units — affordable / 421A</p>
+      <table class="cost-table">
+        <thead>
+          <tr>
+            <th>Unit type</th>
+            <th class="right"># Units</th>
+            <th class="right">Monthly rent ($)</th>
+            <th class="right">Annual income</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Studio (affordable)</td>
+            <td><input type="number" id="u_aff_studio" value="8" min="0"></td>
+            <td><input type="number" id="r_aff_studio" value="2176" min="0"></td>
+            <td class="row-pct" id="a_aff_studio" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">1 Bedroom (affordable)</td>
+            <td><input type="number" id="u_aff_1br" value="8" min="0"></td>
+            <td><input type="number" id="r_aff_1br" value="2331" min="0"></td>
+            <td class="row-pct" id="a_aff_1br" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">2 Bedroom (affordable)</td>
+            <td><input type="number" id="u_aff_2br" value="16" min="0"></td>
+            <td><input type="number" id="r_aff_2br" value="2796" min="0"></td>
+            <td class="row-pct" id="a_aff_2br" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr class="subtotal-row">
+            <td>Affordable total</td>
+            <td id="u_total_aff" style="text-align:right;font-size:12px;color:var(--muted);"></td>
+            <td></td>
+            <td style="text-align:right;font-weight:700;" id="aff_income_calc"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Retail + Parking + Other -->
+    <div class="card">
+      <p class="card-title">Commercial & other income</p>
+      <table class="cost-table">
+        <thead><tr><th>Item</th><th class="right">Qty / sqft</th><th class="right">Monthly rate ($)</th><th class="right">Annual income</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="row-label">Retail (sqft)</td>
+            <td><input type="number" id="retail_sqft" value="7770" min="0"></td>
+            <td><input type="number" id="retail_rent_mo" value="3.75" step="0.25" min="0"><span style="font-size:11px;color:var(--muted);"> /sqft/mo</span></td>
+            <td class="row-pct" id="a_retail" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">Parking spaces</td>
+            <td><input type="number" id="parking_spaces" value="115" min="0"></td>
+            <td><input type="number" id="parking_rent_mo" value="300" min="0"></td>
+            <td class="row-pct" id="a_parking" style="text-align:right;font-weight:500;"></td>
+          </tr>
+          <tr>
+            <td class="row-label">Other income (annual)</td>
+            <td colspan="2"><input type="number" id="other_income" value="350000" style="width:160px;"></td>
+            <td class="row-pct" id="a_other" style="text-align:right;font-weight:500;"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Vacancy + EGI summary -->
+    <div class="card" style="background:#f8faf6;">
+      <table class="cost-table">
+        <tbody>
+          <tr><td class="row-label">Total gross income</td><td style="text-align:right;font-weight:600;" id="gross_income_calc">$0</td></tr>
+          <tr><td class="row-label">Vacancy rate (%)</td><td><input type="number" id="vacancy" value="5" min="0" max="50" style="width:80px;text-align:right;"></td></tr>
+          <tr class="subtotal-row"><td>Effective gross income (EGI)</td><td style="text-align:right;font-weight:700;" id="egi-display">$0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <p class="card-title">Operating expenses</p>
+        <table class="cost-table">
+          <thead><tr><th>Item</th><th class="right">Annual ($)</th></tr></thead>
+          <tbody>
+            <tr><td class="row-label">Real estate taxes</td><td><input type="number" data-group="expense" value="8873848"></td></tr>
+            <tr><td class="row-label">Water & sewer</td><td><input type="number" data-group="expense" value="333850"></td></tr>
+            <tr><td class="row-label">Insurance</td><td><input type="number" data-group="expense" value="424900"></td></tr>
+            <tr><td class="row-label">Utilities</td><td><input type="number" data-group="expense" value="455250"></td></tr>
+            <tr><td class="row-label">Repairs & maintenance</td><td><input type="number" data-group="expense" value="303500"></td></tr>
+            <tr><td class="row-label">Payroll & benefits</td><td><input type="number" data-group="expense" value="819450"></td></tr>
+            <tr><td class="row-label">G & A</td><td><input type="number" data-group="expense" value="303500"></td></tr>
+            <tr><td class="row-label">Management (% of EGI)</td><td><input type="number" id="mgmt_pct" value="2.5" step="0.5" style="width:80px;text-align:right;"></td></tr>
+            <tr><td class="row-label">Reserves</td><td><input type="number" data-group="expense" value="151750"></td></tr>
+            <tr class="total-row"><td>Total expenses</td><td style="text-align:right;font-weight:700;" id="exp-display">$0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="text-align:center;padding:16px 20px;">
+      <span style="font-size:13px;color:var(--muted);">Net operating income (NOI)</span>
+      <span style="font-size:28px;font-weight:700;color:#2a6612;margin-left:16px;" id="noi-inline">$0</span>
+      <span style="font-size:13px;color:var(--muted);margin-left:12px;" id="exp-ratio-display"></span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TAB: ACQUISITION & SETTINGS ═══════════════ -->
+  <div id="tab-acquisition" class="tab-panel">
+    <div class="card">
+      <p class="card-title">Acquisition</p>
+      <div class="field-grid">
+        <div class="field"><label>Purchase price ($)</label><input type="number" id="pp" value="75000000"></div>
+        <div class="field"><label>Lot size (sqft)</label><input type="number" id="lotsize" value="38464"></div>
+        <div class="field"><label>Buildable sqft (BSF)</label><input type="number" id="bsf" value="461568"></div>
+        <div class="field"><label>Number of units</label><input type="number" id="units" value="607"></div>
+        <div class="field"><label>LTV ratio (%)</label><input type="number" id="ltv" value="80" min="0" max="100"><div class="hint">Loan-to-cost percentage</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <p class="card-title">Market assumptions & deal thresholds</p>
+      <div class="field-grid">
+        <div class="field"><label>Market CAP rate (%)</label><input type="number" id="mkt_cap" value="5.25" step="0.25"><div class="hint">Used to calculate AIA / value</div></div>
+        <div class="field"><label>Annual debt interest rate (%)</label><input type="number" id="debt_rate" value="6" step="0.25"></div>
+        <div class="field"><label>Min. ROI threshold (%)</label><input type="number" id="min_roi" value="8"><div class="hint">Below this = caution / red</div></div>
+        <div class="field"><label>Min. CAP rate threshold (%)</label><input type="number" id="min_cap" value="6.5"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TAB: RESULTS ═══════════════ -->
+  <div id="tab-results" class="tab-panel">
+
+    <div id="verdict" class="verdict-box good">
+      <p id="verdict-title" class="verdict-title good">—</p>
+      <p id="verdict-sub" class="verdict-sub good">—</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><p class="kpi-label">NOI</p><p class="kpi-value green" id="kpi-noi">—</p><p class="kpi-sub">Net operating income</p></div>
+      <div class="kpi"><p class="kpi-label">CAP rate</p><p class="kpi-value" id="kpi-cap">—</p><p class="kpi-sub">NOI ÷ total cost</p></div>
+      <div class="kpi"><p class="kpi-label">Cash-on-cash ROI</p><p class="kpi-value" id="kpi-roi">—</p><p class="kpi-sub">Cash flow ÷ equity</p></div>
+      <div class="kpi"><p class="kpi-label">AIA / Value</p><p class="kpi-value blue" id="kpi-aia">—</p><p class="kpi-sub">NOI ÷ market CAP</p></div>
+      <div class="kpi"><p class="kpi-label">Profit at value</p><p class="kpi-value" id="kpi-profit">—</p><p class="kpi-sub">Value − total cost</p></div>
+      <div class="kpi"><p class="kpi-label">Underrating</p><p class="kpi-value" id="kpi-under">—</p><p class="kpi-sub">Cost vs. market value</p></div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <p class="card-title">Deal structure</p>
+        <div class="row-item"><span class="lbl">Purchase price</span><span class="val" id="d-pp">—</span></div>
+        <div class="row-item"><span class="lbl">Hard costs (incl. contingency)</span><span class="val" id="d-hard">—</span></div>
+        <div class="row-item"><span class="lbl">Soft costs (incl. contingency)</span><span class="val" id="d-soft">—</span></div>
+        <div class="row-item"><span class="lbl">Financing costs</span><span class="val" id="d-fin">—</span></div>
+        <div class="row-item"><span class="lbl">Total project cost</span><span class="val" id="d-total">—</span></div>
+        <div class="row-item"><span class="lbl">Loan amount</span><span class="val" id="d-loan">—</span></div>
+        <div class="row-item"><span class="lbl">Cash (equity) needed</span><span class="val" id="d-equity">—</span></div>
+        <div class="row-item"><span class="lbl">Annual debt service</span><span class="val" id="d-debt">—</span></div>
+        <div class="row-item"><span class="lbl">Annual cash flow</span><span class="val" id="d-cf">—</span></div>
+        <div class="row-item"><span class="lbl">Price per BSF</span><span class="val" id="d-ppbsf">—</span></div>
+        <div class="row-item"><span class="lbl">Price per unit</span><span class="val" id="d-ppu">—</span></div>
+      </div>
+      <div class="card">
+        <p class="card-title">Cost allocation</p>
+        <div id="cost-bars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">CAP rate sensitivity — property value</p>
+      <div class="chart-wrap"><canvas id="capChart"></canvas></div>
+    </div>
+
+  </div>
+
+</div>
+<footer>Land Deal Analyzer &nbsp;·&nbsp; All calculations are estimates only</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmtM = n => (n >= 0 ? '' : '-') + '$' + (Math.abs(n)/1e6).toFixed(1) + 'M';
+const fmtD = n => '$' + Math.round(Math.abs(n)).toLocaleString();
+const fmtPct = n => n.toFixed(2) + '%';
+const g = id => { const el = $(id); return el ? (parseFloat(el.value) || 0) : 0; };
+
+let capChart = null;
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  $('tab-' + name).classList.add('active');
+}
+
+function sumGroup(group) {
+  let total = 0;
+  document.querySelectorAll(`input[data-group="${group}"]`).forEach(el => { total += parseFloat(el.value) || 0; });
+  return total;
+}
+
+function updatePcts(group, total, displayId) {
+  const inputs = document.querySelectorAll(`input[data-group="${group}"]`);
+  inputs.forEach(el => {
+    const pctCell = el.closest('tr').querySelector('.row-pct');
+    if (pctCell && total > 0) pctCell.textContent = ((parseFloat(el.value)||0) / total * 100).toFixed(1) + '%';
+    else if (pctCell) pctCell.textContent = '—';
+  });
+}
+
+function calc() {
+  const hardSub = sumGroup('hard');
+  const hardContPct = g('hard-contingency-pct') / 100;
+  const hardCont = hardSub * hardContPct;
+  const hardTotal = hardSub + hardCont;
+
+  const softSub = sumGroup('soft');
+  const softContPct = g('soft-contingency-pct') / 100;
+  const softCont = softSub * softContPct;
+  const softTotal = softSub + softCont;
+
+  const finTotal = sumGroup('fin');
+
+  updatePcts('hard', hardSub, 'hard-total');
+  updatePcts('soft', softSub, 'soft-total');
+  updatePcts('fin', finTotal, 'fin-total');
+
+  if ($('hard-sub')) $('hard-sub').textContent = fmtD(hardSub);
+  if ($('hard-cont-amt')) $('hard-cont-amt').textContent = fmtD(hardCont);
+  if ($('hard-total')) $('hard-total').textContent = fmtD(hardTotal);
+  if ($('hard-total-display')) $('hard-total-display').textContent = fmtM(hardTotal);
+  if ($('soft-sub')) $('soft-sub').textContent = fmtD(softSub);
+  if ($('soft-cont-amt')) $('soft-cont-amt').textContent = fmtD(softCont);
+  if ($('soft-total')) $('soft-total').textContent = fmtD(softTotal);
+  if ($('soft-total-display')) $('soft-total-display').textContent = fmtM(softTotal);
+  if ($('fin-total')) $('fin-total').textContent = fmtD(finTotal);
+  if ($('fin-total-display')) $('fin-total-display').textContent = fmtM(finTotal);
+
+  const pp = g('pp'), bsf = g('bsf'), units = g('units');
+  const ltv = g('ltv') / 100;
+  const totalCost = pp + hardTotal + softTotal + finTotal;
+
+  // Unit-based income calculation
+  const fmtAnn = n => '$' + Math.round(n).toLocaleString();
+  const ann = (units, rent) => (parseFloat(units)||0) * (parseFloat(rent)||0) * 12;
+
+  const a_studio = ann(g('u_studio'), g('r_studio'));
+  const a_1br    = ann(g('u_1br'),    g('r_1br'));
+  const a_2br    = ann(g('u_2br'),    g('r_2br'));
+  const a_3br    = ann(g('u_3br'),    g('r_3br'));
+  const res = a_studio + a_1br + a_2br + a_3br;
+
+  const a_aff_studio = ann(g('u_aff_studio'), g('r_aff_studio'));
+  const a_aff_1br    = ann(g('u_aff_1br'),    g('r_aff_1br'));
+  const a_aff_2br    = ann(g('u_aff_2br'),    g('r_aff_2br'));
+  const aff = a_aff_studio + a_aff_1br + a_aff_2br;
+
+  const retail_inc  = (g('retail_sqft') * g('retail_rent_mo')) * 12;
+  const parking_inc = g('parking_spaces') * g('parking_rent_mo') * 12;
+  const other       = g('other_income');
+
+  const grossIncome = res + aff + retail_inc + parking_inc + other;
+  const vacancy = g('vacancy') / 100;
+  const egi = grossIncome * (1 - vacancy);
+
+  // Update unit income display
+  const set = (id, val) => { if ($(id)) $(id).textContent = fmtAnn(val); };
+  set('a_studio', a_studio); set('a_1br', a_1br); set('a_2br', a_2br); set('a_3br', a_3br);
+  set('a_aff_studio', a_aff_studio); set('a_aff_1br', a_aff_1br); set('a_aff_2br', a_aff_2br);
+  set('a_retail', retail_inc); set('a_parking', parking_inc); set('a_other', fmtAnn(other));
+  set('res_income_calc', res); set('aff_income_calc', aff);
+  set('gross_income_calc', grossIncome);
+  if ($('a_other')) $('a_other').textContent = fmtAnn(other);
+  if ($('u_total_market')) $('u_total_market').textContent = (g('u_studio')+g('u_1br')+g('u_2br')+g('u_3br')) + ' units';
+  if ($('u_total_aff')) $('u_total_aff').textContent = (g('u_aff_studio')+g('u_aff_1br')+g('u_aff_2br')) + ' units';
+
+  const mgmtPct = g('mgmt_pct') / 100;
+  const mgmtAmt = egi * mgmtPct;
+  const fixedExp = sumGroup('expense');
+  const totalExp = fixedExp + mgmtAmt;
+  const noi = egi - totalExp;
+
+  const mktCap = g('mkt_cap') / 100;
+  const minRoi = g('min_roi');
+  const minCap = g('min_cap');
+  const debtRate = g('debt_rate') / 100;
+
+  const capRate = totalCost > 0 ? (noi / totalCost) * 100 : 0;
+  const aia = mktCap > 0 ? noi / mktCap : 0;
+  const loanAmt = totalCost * ltv;
+  const equity = totalCost - loanAmt;
+  const annualDebt = loanAmt * debtRate;
+  const cashFlow = noi - annualDebt;
+  const roi = equity > 0 ? (cashFlow / equity) * 100 : 0;
+  const profit = aia - totalCost;
+  const underrating = aia > 0 ? ((aia - totalCost) / aia) * 100 : 0;
+  const expRatio = egi > 0 ? (totalExp / egi * 100).toFixed(1) : 0;
+
+  if ($('egi-display')) $('egi-display').textContent = fmtD(egi);
+  if ($('exp-display')) $('exp-display').textContent = fmtD(totalExp);
+  if ($('noi-inline')) $('noi-inline').textContent = fmtM(noi);
+  if ($('exp-ratio-display')) $('exp-ratio-display').textContent = `Expense ratio: ${expRatio}%`;
+
+  if ($('kpi-noi')) $('kpi-noi').textContent = fmtM(noi);
+  if ($('kpi-aia')) $('kpi-aia').textContent = fmtM(aia);
+  if ($('d-pp')) $('d-pp').textContent = fmtM(pp);
+  if ($('d-hard')) $('d-hard').textContent = fmtM(hardTotal);
+  if ($('d-soft')) $('d-soft').textContent = fmtM(softTotal);
+  if ($('d-fin')) $('d-fin').textContent = fmtM(finTotal);
+  if ($('d-total')) $('d-total').textContent = fmtM(totalCost);
+  if ($('d-loan')) $('d-loan').textContent = fmtM(loanAmt);
+  if ($('d-equity')) $('d-equity').textContent = fmtM(equity);
+  if ($('d-debt')) $('d-debt').textContent = fmtM(annualDebt);
+  if ($('d-cf')) $('d-cf').textContent = fmtM(cashFlow);
+  if ($('d-ppbsf')) $('d-ppbsf').textContent = bsf > 0 ? '$' + Math.round(totalCost/bsf).toLocaleString() + '/sf' : '—';
+  if ($('d-ppu')) $('d-ppu').textContent = units > 0 ? '$' + Math.round(totalCost/units).toLocaleString() + '/unit' : '—';
+
+  const setKpi = (id, val, good, warn) => {
+    if (!$(id)) return;
+    $(id).textContent = fmtPct(val);
+    $(id).className = 'kpi-value ' + (val >= good ? 'green' : val >= warn ? 'amber' : 'red');
+  };
+  setKpi('kpi-cap', capRate, minCap, minCap * 0.85);
+  setKpi('kpi-roi', roi, minRoi, minRoi * 0.85);
+  setKpi('kpi-under', underrating, 10, 0);
+  if ($('kpi-profit')) {
+    $('kpi-profit').textContent = fmtM(profit);
+    $('kpi-profit').className = 'kpi-value ' + (profit > 0 ? 'green' : 'red');
+  }
+
+  const good = roi >= minRoi && capRate >= minCap && profit > 0;
+  const ok = (roi >= minRoi * 0.85 || capRate >= minCap * 0.85) && profit > 0;
+  const state = good ? 'good' : ok ? 'caution' : 'bad';
+  if ($('verdict')) {
+    $('verdict').className = 'verdict-box ' + state;
+    $('verdict-title').className = 'verdict-title ' + state;
+    $('verdict-sub').className = 'verdict-sub ' + state;
+    if (good) {
+      $('verdict-title').textContent = '✓ Deal looks strong';
+      $('verdict-sub').textContent = `ROI ${fmtPct(roi)} ≥ ${minRoi}% target · CAP ${fmtPct(capRate)} ≥ ${minCap}% target · Profit ${fmtM(profit)} at market value`;
+    } else if (ok) {
+      $('verdict-title').textContent = '⚠ Deal needs review';
+      $('verdict-sub').textContent = `${roi < minRoi ? 'ROI ' + fmtPct(roi) + ' below ' + minRoi + '% target. ' : ''}${capRate < minCap ? 'CAP ' + fmtPct(capRate) + ' below ' + minCap + '% target.' : ''}`;
+    } else {
+      $('verdict-title').textContent = '✗ Deal does not work';
+      $('verdict-sub').textContent = `ROI ${fmtPct(roi)} vs ${minRoi}% target · CAP ${fmtPct(capRate)} vs ${minCap}% target · ${profit < 0 ? 'Negative value spread' : 'Margins too thin'}`;
+    }
+  }
+
+  if ($('cost-bars')) {
+    const costs = [
+      { label: 'Purchase price', val: pp, color: '#1a7fc4' },
+      { label: 'Hard costs', val: hardTotal, color: '#5cb82e' },
+      { label: 'Financing costs', val: finTotal, color: '#e6a817' },
+      { label: 'Soft costs', val: softTotal, color: '#c0509a' }
+    ];
+    const tot = costs.reduce((a, c) => a + c.val, 0);
+    const mx = Math.max(...costs.map(c => c.val));
+    $('cost-bars').innerHTML = costs.map(c => {
+      const pct = tot > 0 ? Math.round(c.val / tot * 100) : 0;
+      const w = mx > 0 ? Math.round(c.val / mx * 100) : 0;
+      return `<div class="bar-row"><div class="bar-top"><span>${c.label}</span><span>${fmtM(c.val)} · ${pct}%</span></div><div class="bar-bg"><div class="bar-fill" style="width:${w}%;background:${c.color};"></div></div></div>`;
+    }).join('');
+  }
+
+  if ($('capChart')) {
+    const caps = [4.0, 4.5, 5.0, 5.25, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0];
+    const vals = caps.map(r => parseFloat((noi / (r/100) / 1e6).toFixed(1)));
+    const mktCapPct = mktCap * 100;
+    if (capChart) {
+      capChart.data.datasets[0].data = vals;
+      capChart.data.datasets[0].pointRadius = caps.map(r => Math.abs(r - mktCapPct) < 0.01 ? 7 : 3);
+      capChart.update();
+    } else {
+      capChart = new Chart($('capChart'), {
+        type: 'line',
+        data: {
+          labels: caps.map(r => r + '%'),
+          datasets: [{ label: 'Value ($M)', data: vals, borderColor: '#1a3d0e', backgroundColor: 'rgba(92,184,46,0.08)',
+            pointBackgroundColor: caps.map(r => Math.abs(r - mktCapPct) < 0.01 ? '#5cb82e' : 'transparent'),
+            pointBorderColor: '#1a3d0e', pointRadius: caps.map(r => Math.abs(r - mktCapPct) < 0.01 ? 7 : 3),
+            tension: 0.3, fill: true, borderWidth: 2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { color: '#5a6b54' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    y: { ticks: { color: '#5a6b54', callback: v => '$' + v + 'M' }, grid: { color: 'rgba(0,0,0,0.05)' } } } }
+      });
+    }
+  }
+}
+
+const SAVE_KEY = 'deal-analyzer-v1';
+let saveTimer = null;
+
+function saveData() {
+  const data = {};
+  document.querySelectorAll('input').forEach(el => {
+    const key = el.id || el.dataset.index;
+    if (key) data[key] = el.value;
+  });
+  // for inputs without id, save by position
+  document.querySelectorAll('input:not([id])').forEach((el, i) => {
+    data['_input_' + i] = el.value;
+  });
+  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  const ind = $('save-indicator');
+  if (ind) {
+    const now = new Date();
+    ind.textContent = `Saved at ${now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+  }
+}
+
+function loadData() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    // restore by id
+    document.querySelectorAll('input[id]').forEach(el => {
+      if (data[el.id] !== undefined) el.value = data[el.id];
+    });
+    // restore by position
+    document.querySelectorAll('input:not([id])').forEach((el, i) => {
+      if (data['_input_' + i] !== undefined) el.value = data['_input_' + i];
+    });
+    const ind = $('save-indicator');
+    if (ind) ind.textContent = 'Data loaded from last session.';
+  } catch(e) {}
+}
+
+function newProject() {
+  if (!confirm('Start a new project? This will clear all current values.')) return;
+  localStorage.removeItem(SAVE_KEY);
+  location.reload();
+}
+
+document.addEventListener('input', e => {
+  calc();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveData, 600);
+});
+
+loadData();
+calc();
+</script>
+</body>
+</html>
